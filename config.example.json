@@ -1,0 +1,11 @@
+{
+  "subsidiary": "IE",
+  "plan_codes": null,
+  "os_family": "linux",
+  "storage": "any",
+  "interval_seconds": 300,
+  "timeout_seconds": 20,
+  "telegram_bot_token": "",
+  "telegram_chat_id": "",
+  "buy_url": "https://www.ovhcloud.com/en/vps/configurator/"
+}

@@ -1,0 +1,21 @@
+# Keep unlisted files out of the repository by default.
+*
+
+# Deployment allowlist.
+!.gitignore
+!.github/
+!.github/workflows/
+!.github/workflows/monitor.yml
+!README.md
+!ovh_vps3_monitor.py
+!run.ps1
+!deploy.ps1
+!config.example.json
+!config/
+!config/monitor.json
+!data/
+!data/state.json
+!tests/
+!tests/test_monitor.py
+!tests/fixtures/
+!tests/fixtures/stock.json
