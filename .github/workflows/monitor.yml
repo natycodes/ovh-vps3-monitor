@@ -1,0 +1,89 @@
+name: Check OVH VPS-3 stock
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Check and notify, check without notifying, or test Telegram"
+        type: choice
+        options: [monitor, check, test-telegram]
+        default: monitor
+  push:
+    branches: [main]
+    paths:
+      - "ovh_vps3_monitor.py"
+      - "config/**"
+      - "tests/**"
+      - ".github/workflows/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ovh-vps3-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Pin official actions to immutable commits so tags cannot change the code
+      # that runs in the same job as the Telegram secrets.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Verify monitor behavior offline
+        run: python -m unittest discover -s tests -v
+
+      - name: Detect notification configuration
+        id: notifications
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        shell: bash
+        run: |
+          if [[ -n "$TELEGRAM_BOT_TOKEN" && -n "$TELEGRAM_CHAT_ID" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID as repository Actions secrets to enable Telegram alerts. Stock checks remain active."
+          fi
+
+      - name: Check stock without notifying
+        if: steps.notifications.outputs.configured != 'true' || github.event.inputs.mode == 'check'
+        run: python ovh_vps3_monitor.py --check --config config/monitor.json
+
+      - name: Check stock and notify about new availability
+        id: check_and_notify
+        if: steps.notifications.outputs.configured == 'true' && (github.event.inputs.mode == '' || github.event.inputs.mode == 'monitor')
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python ovh_vps3_monitor.py --once --config config/monitor.json --state data/state.json
+
+      - name: Send a Telegram setup test
+        if: github.event.inputs.mode == 'test-telegram'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python ovh_vps3_monitor.py --test-notification --config config/monitor.json
+
+      - name: Save acknowledged alert state
+        if: ${{ always() && steps.check_and_notify.outcome != 'skipped' && steps.check_and_notify.outcome != '' }}
+        shell: bash
+        run: |
+          git config user.name "ovh-vps3-monitor bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- data/state.json
+          if git diff --cached --quiet; then
+            echo "Alert state unchanged."
+            exit 0
+          fi
+          git commit -m "Update OVH VPS-3 alert state [skip ci]"
+          git pull --rebase --autostash
+          git push
