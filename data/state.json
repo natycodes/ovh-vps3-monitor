@@ -1,3 +1,7 @@
 {
-  "v2:09178cffbcaa62d94a5569970808db51ceb2541b460ca9e2c2ffc1a00716aac2": []
+  "v2:09178cffbcaa62d94a5569970808db51ceb2541b460ca9e2c2ffc1a00716aac2": [
+    "vps-2027-model3|ap-southeast-sgp|local",
+    "vps-2027-model3|eu-central-waw|local",
+    "vps-2027-model3|eu-west-gra|local"
+  ]
 }
